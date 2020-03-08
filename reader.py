@@ -1,20 +1,6 @@
 import re
-f=open("assemble.asm","r")
-g=open("out.mc","w")
-#s= str(f.readline())
-
-def register_to_5bit(string,form):
-	#print(string,form)
-	if ((string[0] != '1') and (string[0] != '2') and (string[0] != '3') and (string[0] != '4') and (string[0] != '5') and (string[0] != '6') and (string[0] != '7') and (string[0] != '8')and(string[0] != '9')):
-		s2 = int(string[1::])
-		s5 = format(s2,'05b')
-	else: #is a starting with a number
-		if(form=="i" or form=='s' or form=='sb'):
-			
-			s2 = int(string)
-			s5 = format(s2, '012b')
-		#print(s5)
-	return s5
+readingfile=open("assemble.asm","r")
+writefile=open("out.mc","w")
 
 dict3 = {
   	"add": "000", "and": "111", "or": "110", "sll": "001", "slt": "001", "sra": "101", "srl": "101", "sub": "000", "xor": "100", "mul": "000", "div": "100", "rem": "110",
@@ -48,34 +34,115 @@ dictionary_opcode = {
 'auipc':'0010111','lui':'0110111','jal':'1101111'
 }
 
-for x in f:
-	s=str(x)
-	s=s.strip("\r\n")
-	l=[]
-	s=s.replace(","," ")
-	s=s.replace(":"," ")
-	print(s)
-	l=s.split()
-	#print(l)
-	 #getting values converted from user
-	rs1,rs2,rd,imm,f7,f3=(-1,-1,-1,-1,-1,-1)
+
+def get_register(string):
+	s1 = int(string[1::])
+	return format(s1,'05b')
+
+def immediate12bit(string):
+	if(len(string)>1):
+		if(string[0]=='0' and string[1]=='x'):
+			if(len(string)>5):
+				return "Immediate value out of range, must be 12 bit wide"
+			else:
+				return bin(int(string[2::],16))[2::].zfill(12) ######################################################################33333
+			n = int(string)
+			return (format(n,'012b'))
+	#elif (string[0]=='0' and string[1]=='x'): #being a hexadecimal number we need to convert it to a 12 bit value
+	#	n = int(string) - 2**12
+		elif (string[0]=='-'): #eg.  -16 
+			n = int(string[1::])
+			n = 2**12 - n
+			return (format(n,'012b'))
+		else:
+			return format(int(string),'012b')
+	else:
+		return (format(int(string),'012b'))
+
+def immediate20bit(string):
+	if(len(string)>1):
+		if(string[0]=='0' and string[1]=='x'):
+			if(len(string)>7):
+				return "Immediate value of range, must be 20 bit wide"
+			else: #return  as it is 
+				return bin(int(string[2::],16))[2::].zfill(20)
+		elif(string[0]=='-'):
+			n = int(string[1::])
+			n = 2**20 - n
+			return format(n,'020b')
+		else:
+			return format(int(string),'020b')
+	else:
+		return format(int(string),'020b')
+
+def get_mc(l):
 	if dictionary_format[l[0]]=='r':
 		f7=dict7[l[0]]
-	if(dictionary_format[l[0]]=='r' or dictionary_format[l[0]]=='i'):
-		rs1 = register_to_5bit(l[2],dictionary_format[l[0]])
-		f3 = dict3[l[0]]
-	if(dictionary_format[l[0]]=='r' or dictionary_format[l[0]]=='s' or dictionary_format[l[0]]=='sb'):
-		rs2 = register_to_5bit(l[3],dictionary_format[l[0]])
+		f3=dict3[l[0]]
+		rd=get_register(l[1])
+		rs1=get_register(l[2])
+		rs2=get_register(l[3])
+		opcode=dictionary_opcode[l[0]]
+		print(f7,rs2,rs1,f3,rd,opcode)
+		mc = f7 + rs2 + rs1 + f3 + rd + opcode
+		#print(mc,'0x'+'%.*x'%(8,int('0b'+mc,0)), format(int(mc,2),"#010x"))
+		return '%#010x'%(int('0b'+mc,0))
 	if(dictionary_format[l[0]]=='i'):
-		imm = register_to_5bit(l[3],dictionary_format[l[0]])
-	rd = register_to_5bit(l[1],dictionary_format[l[0]])
-	#imm=
-#	'''
-	print("rd=",rd," rs1=",rs1," rs2=",rs2," imm=",imm," f7=",f7," f3=",f3,sep='')
-	g.write(s)
-	g.write("\n")
-f.close()
-g.close()
+		rd = get_register(l[1])
+		rs1 = get_register(l[2])
+		opcode=dictionary_opcode[l[0]]
+		f3 = dict3[l[0]]
+		imm = immediate12bit(l[3])
+		print(imm,rs1,f3,rd,opcode)
+		mc = imm + rs1 +f3 +rd +opcode
+		#print(mc,'0x'+'%.*x'%(8,int('0b'+mc,0)), format(int(mc,2),"#010x"))
+		return '%#010x'%(int('0b'+mc,0))
+	if(dictionary_format[l[0]]=='s' or dictionary_format[l[0]]=='sb'):
+		if(dictionary_format[l[0]]=='s'):
+			imm = immediate12bit(l[3])
+#		else: #sb format requires branch's label address
+#			labels relative address
+		rs2 = get_register(l[1])
+		rs1 = get_register(l[2])
+		f3 = dict3[l[0]]
+		opcode = dictionary_opcode[l[0]]
+		print("imm = ",imm)
+		print(imm[0:7:],rs2,rs1,f3,imm[7::],opcode)
+		mc = imm[0:7:] + rs2 + rs1 + f3 + imm[7::] + opcode
+		#print(mc,'0x'+'%.*x'%(8,int('0b'+mc,0)), format(int(mc,2),"#010x"))
+		return '%#010x'%(int('0b'+mc,0))
+	if(dictionary_format[l[0]]=='u'):
+		imm = immediate20bit(l[2])
+		rd = get_register(l[1])
+		opcode = dictionary_opcode[l[0]]
+		print(imm,rd,opcode)
+		mc = imm+rd+opcode
+		return '%#010x'%(int('0b'+mc,0))
+
+instructionAddress = 0
+dataFlag = False # True means this is a data segment and false means it is a text segment
+for x in readingfile:
+	flag = False
+	if(dataFlag==False):
+		instructionAddress += 4 
+		s=str(x)
+		s=s.strip("\r\n")
+		l=[]
+		s=s.replace(","," ")
+		s=s.replace(":"," ")
+		if (s.count('(')!=0):
+			flag=True
+			s=s.replace("("," ")
+			s=s.replace(")","")
+		print(s)
+		l=s.split()
+		if flag==True:
+			l[2],l[3]=l[3],l[2]
+			s = l[0]+" " + l[1]+ " " + l[2]+ " " + l[3]
+		machineCode = get_mc(l)	
+		writefile.write(hex(instructionAddress) +" "+machineCode + "\n")
+readingfile.close()
+writefile.close()
 
 
 
