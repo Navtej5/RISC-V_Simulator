@@ -1,5 +1,11 @@
-addi x1,x0,12
-addi x2,x0,-10
-and x3,x1,x2
-sw x1,12(x4)
-lui x15,0x2a
+.data
+check: .word 0x00000001
+addrs: .word 0x10000000
+.text
+lui x3,0x10000 
+lb x5,0(x3) 
+bne x5,x0,little
+addi x10,x10,1
+little: addi x10,x10,0
+
+finish:
