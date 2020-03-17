@@ -1,5 +1,5 @@
 import re
-
+from memory import Memory
 
 dict3 = {
     "add": "000", "and": "111", "or": "110", "sll": "001", "slt": "001", "sra": "101", "srl": "101", "sub": "000", "xor": "100", "mul": "000", "div": "100", "rem": "110",
@@ -111,7 +111,7 @@ def get_mc(l, pc, labels,no_of_segmentflags):
         rs2 = get_register(l[2])
         f3 = dict3[l[0]]
         opcode = dictionary_opcode[l[0]]
-        print("imm = ", imm,)
+        #print("imm = ", imm,)
         if(str(imm)[0] != '-'):
             imm = format(int(imm), '#014b')[2::]
         else:
@@ -132,19 +132,19 @@ def get_mc(l, pc, labels,no_of_segmentflags):
     if(dictionary_format[l[0]] == 'uj'):  # jal x1,label
         opcode = dictionary_opcode[l[0]]
         rd = get_register(l[1])
-        print("label[l[2]] =", labels[l[2]], "current pc =", pc)
+        #print("label[l[2]] =", labels[l[2]], "current pc =", pc)
         imm = (int(labels[l[2]]) - no_of_segmentflags)*4 - pc
-        print("imm = ", imm)
+        #print("imm = ", imm)
         # imm = "11111111111111111111" #relative value from address of current instructionAddress of label - PC(considerin PC is at current instruction)
         if(str(imm)[0] != '-'):
             imm = format(imm, "#022b")[2::]
         else:
             imm = format(2**20 - abs(imm), '#022b')[2::]
-        print(imm,rd,opcode)
+        #print(imm,rd,opcode)
         # because jal takes imm[20:1] ignores the first bit(0 index) as all instruction jumps are a multiple of 4 and 2 thus reducing redundancy
         imm = imm[0] + imm[0:19]
         imm = imm[0] + imm[10::] + imm[9] + imm[1:9:]
-        print(imm)
+        #print(imm)
         mc = str(imm) + rd + opcode
         return '%#010x' % (int('0b'+mc, 0))
 
@@ -198,6 +198,7 @@ def convertToMC(instruction, labels):
                 s = l[0]+" " + l[1] + " " + l[2] + " " + l[3]
             machineCode = get_mc(l, instructionAddress, labels,no_of_segment_flags)
             writefile.write(hex(instructionAddress) + " "+machineCode + "\n")
+            M.add_text(machineCode)
             instructionAddress += 4
         elif(dataFlag == True):  # this is data segment
             s = str(x)
@@ -209,37 +210,47 @@ def convertToMC(instruction, labels):
 
 def getDirectives():
     rf = open("t.asm", "r")
-    data = rf.read()
+    file = rf.read()
     s = ''
     ins = []
     textsegment = True
     labels = {}
-    for x in data:
+    data = {}
+    for x in file:
         if(x == '\n'):
             if(s.strip(" \r\n") != ''):
                 # ins.append(s)
-                print("line :", s)
+                #print("line :", s)
                 # print("textsegment=", textsegment)
-                if(s.strip("\r\n") == '.data'):
+                if(s.strip() == '.data'):
                     textsegment = False
                     ins.append(s)
-                elif(s.strip("\r\n") == '.text'):
+                elif(s.strip()== '.text'):
                     textsegment = True
                     ins.append(s)
                 elif(s.find(":") != -1 and textsegment == True):
                     cuu = s[0:s.find(":"):].replace('\t', 'aa')
-                    print("wooohooo", cuu)
-                    labels[s[0: s.find(":"):].strip("\r\n").replace(' ', '')] = len(ins)
-                    if(s[s.find(":")+1::].strip("\r\n").replace(" ", "") != ''):
+                #    print("wooohooo", cuu)
+                    labels[s[0: s.find(":"):].strip()] = len(ins)
+                    if(s[s.find(":")+1::].strip().replace(" ", "") != ''):
                         ins.append(s[s.find(":")+1::])
-                else:
+                elif(textsegment==True):
                     ins.append(s)
+                elif(textsegment==False):
+                    s=s.strip()
+                    dd = s.split(":")
+                    dd[0]=dd[0].strip()
+                    dd[1]=dd[1].strip()
+                    dd.append(dd[1][dd[1].find(" ")::].strip())
+                    dd[1] = dd[1][:dd[1].find(" "):].strip()
+                    print(dd)
+                    data[dd[0]] = dd[1],dd[2]
             s = ''
-            print(len(ins))
+            #print(len(ins))
         else:
             s += x
     #s=s.replace(" ",'')
-    print("last=",s.strip("\r\n"),sep="")
+    #print("last=",s.strip("\r\n"),sep="")
     if(s.strip("\r\n") != ''):
         # print("line :", s)
         # print("textsegment=", textsegment)
@@ -251,22 +262,23 @@ def getDirectives():
             textsegment = True
             ins.append(s)
         elif(s.find(":") != -1 and textsegment == True):
-            print("wooohooo", s[s.find(":")+1::])
+        #    print("wooohooo", s[s.find(":")+1::])
             labels[s[0: s.find(":"):].replace(" ",'')] = len(ins)
             if(s[s.find(":")+1::].strip("\r\n").replace(" ","")!=''):
                 ins.append(s[s.find(":")+1::])
         else:
             ins.append(s)
-    print(ins)
-    print(labels)
+    #print(ins)
+    #print(labels)
     # print(len(ins))
+    print("YOOO\n",data)
     rf.close()
     return ins, labels
 
-
+M = Memory()
 instructions, labela = getDirectives()
 convertToMC(instructions, labela)
-
+M.show_Memory()
 
 '''
 0. handle directives
