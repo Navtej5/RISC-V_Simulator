@@ -80,7 +80,7 @@ def immediate20bit(string):
         return format(int(string), '020b')
 
 
-def get_mc(l, pc, labels):
+def get_mc(l, pc, labels,no_of_segmentflags):
     if dictionary_format[l[0]] == 'r':
         f7 = dict7[l[0]]
         f3 = dict3[l[0]]
@@ -106,7 +106,7 @@ def get_mc(l, pc, labels):
         if(dictionary_format[l[0]] == 's'):
             imm = immediate12bit(l[3])
         else:  # sb format requires branch's label address
-            imm = int((labels[l[3]]*4 - pc)/2)
+            imm = int(((labels[l[3]] - no_of_segmentflags)*4 - pc)/2)
         rs1 = get_register(l[1])
         rs2 = get_register(l[2])
         f3 = dict3[l[0]]
@@ -132,19 +132,19 @@ def get_mc(l, pc, labels):
     if(dictionary_format[l[0]] == 'uj'):  # jal x1,label
         opcode = dictionary_opcode[l[0]]
         rd = get_register(l[1])
-        # print("dict_label[l[2]] =", dict_labels[l[2]], "current pc =", pc)
-        imm = int(labels[l[2]])*4 - pc
+        print("label[l[2]] =", labels[l[2]], "current pc =", pc)
+        imm = (int(labels[l[2]]) - no_of_segmentflags)*4 - pc
         print("imm = ", imm)
         # imm = "11111111111111111111" #relative value from address of current instructionAddress of label - PC(considerin PC is at current instruction)
         if(str(imm)[0] != '-'):
-            imm = format(imm, "#020b")[2::]
+            imm = format(imm, "#022b")[2::]
         else:
             imm = format(2**20 - abs(imm), '#022b')[2::]
-        # print(imm,rd,opcode)
+        print(imm,rd,opcode)
         # because jal takes imm[20:1] ignores the first bit(0 index) as all instruction jumps are a multiple of 4 and 2 thus reducing redundancy
         imm = imm[0] + imm[0:19]
         imm = imm[0] + imm[10::] + imm[9] + imm[1:9:]
-        # print(imm2)
+        print(imm)
         mc = str(imm) + rd + opcode
         return '%#010x' % (int('0b'+mc, 0))
 
@@ -154,6 +154,7 @@ def convertToMC(instruction, labels):
     writefile = open("out.mc", "w")
     instructionAddress = 0
     dataFlag = False  # True means this is a data segment and false means it is a text segment
+    no_of_segment_flags=0
     for x in instruction:
         # this flag is for switching format in case of {jalr x0,0(x1)} equating {jalr x0 x1 0}
         flag = False
@@ -161,11 +162,13 @@ def convertToMC(instruction, labels):
         if(x.strip("\r\n") == ""):
             print("no instruction here, this is empty")
             continue
-        elif(x.strip("\r\n") == ".data"):
+        elif(x.strip("\r\n").replace(" ","") == ".data"):
             dataFlag = True
+            no_of_segment_flags+=1
             continue
-        elif(x.strip("\r\n") == ".text"):
+        elif(x.strip("\r\n").replace(" ","") == ".text"):
             dataFlag = False
+            no_of_segment_flags+=1
             continue
         # elif(x.find(":") != -1 and dataFlag == False):
         #     dict_labels[x[0:x.find(":"):]] = hex(instructionAddress)
@@ -193,7 +196,7 @@ def convertToMC(instruction, labels):
             if flag == True:
                 l[2], l[3] = l[3], l[2]
                 s = l[0]+" " + l[1] + " " + l[2] + " " + l[3]
-            machineCode = get_mc(l, instructionAddress, labels)
+            machineCode = get_mc(l, instructionAddress, labels,no_of_segment_flags)
             writefile.write(hex(instructionAddress) + " "+machineCode + "\n")
             instructionAddress += 4
         elif(dataFlag == True):  # this is data segment
