@@ -1,5 +1,5 @@
 import re
-from memory import Memory
+from memory2 import Memory
 
 dict3 = {
     "add": "000", "and": "111", "or": "110", "sll": "001", "slt": "001", "sra": "101", "srl": "101", "sub": "000", "xor": "100", "mul": "000", "div": "100", "rem": "110",
@@ -34,7 +34,7 @@ dictionary_opcode = {
     'auipc': '0010111', 'lui': '0110111', 'jal': '1101111'
 }
 
-dict_labels = {}
+# dict_labels = {}
 
 
 def get_register(string):
@@ -149,8 +149,11 @@ def get_mc(l, pc, labels,no_of_segmentflags):
         return '%#010x' % (int('0b'+mc, 0))
 
 
-def convertToMC(instruction, labels):
+def convertToMC(instruction, labels,datas):
     # readingfile = open("assemble.asm", "r")
+    print(instruction,"\n")
+    print(labels,"\n")
+    print(datas,"\n")
     writefile = open("out.mc", "w")
     instructionAddress = 0
     dataFlag = False  # True means this is a data segment and false means it is a text segment
@@ -201,6 +204,7 @@ def convertToMC(instruction, labels):
             M.add_text(machineCode)
             instructionAddress += 4
         elif(dataFlag == True):  # this is data segment
+            print("MIKE MIKE MIKE MIKE MIKE MIKE MIKE")
             s = str(x)
             s = s.replace(":", " ")
             l = s.split()
@@ -243,15 +247,19 @@ def getDirectives():
                     dd[1]=dd[1].strip()
                     dd.append(dd[1][dd[1].find(" ")::].strip())
                     dd[1] = dd[1][:dd[1].find(" "):].strip()
-                    print(dd)
+                    dd[2] = dd[2].replace('"','')
+                    #print(dd)
                     data[dd[0]] = dd[1],dd[2]
+                    #print(data)
+                    address_for_stored_variable = M.add_data(data[dd[0]][0],data[dd[0]][1])
+                    data[dd[0]] = address_for_stored_variable
+                    #print(data)
             s = ''
-            #print(len(ins))
         else:
             s += x
     #s=s.replace(" ",'')
     #print("last=",s.strip("\r\n"),sep="")
-    if(s.strip("\r\n") != ''):
+    if(s.strip("\r\n") != ''):  #this segment is in case final character is not a new line and process the last line irrespective of that
         # print("line :", s)
         # print("textsegment=", textsegment)
         if(s.strip("\r\n") == '.data'):
@@ -271,13 +279,13 @@ def getDirectives():
     #print(ins)
     #print(labels)
     # print(len(ins))
-    print("YOOO\n",data)
     rf.close()
-    return ins, labels
+    
+    return ins, labels , data
 
 M = Memory()
-instructions, labela = getDirectives()
-convertToMC(instructions, labela)
+instructions, labela,dataa = getDirectives() # returns list of instructions , labels , data (containing variable with address they point to)
+convertToMC(instructions, labela,dataa)
 M.show_Memory()
 
 '''
