@@ -35,9 +35,9 @@ class Memory:
                         y = com(x[2::],2)
                         self.data.append(y)
                     else:
-                        self.data.append(hex(int(x))[2::])
+                        self.data.append(com(hex(int(x))[2::],2))
                 else: #not a hex
-                    self.data.append(hex(int(x))[2::])
+                    self.data.append(com(hex(int(x))[2::],2))
         elif(type=='.word'):
             for x in arr:
                 if(len(x)>1): ###NO need to convert if passed value is already in hex

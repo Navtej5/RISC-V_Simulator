@@ -1,5 +1,5 @@
 import re
-from memory2 import Memory
+from memory2 import Memory #memory(2) name wasn't recognized
 
 dict3 = {
     "add": "000", "and": "111", "or": "110", "sll": "001", "slt": "001", "sra": "101", "srl": "101", "sub": "000", "xor": "100", "mul": "000", "div": "100", "rem": "110",
@@ -18,8 +18,7 @@ dict7 = {
 dictionary_format = {
     'add': 'r', 'and': 'r', 'or': 'r', 'srl': 'r', 'sll': 'r', 'slt': 'r', 'sra': 'r', 'sub': 'r', 'xor': 'r', 'mul': 'r', 'div': 'r', 'rem': 'r',
     'addi': 'i', 'andi': 'i', 'ori': 'i', 'lb': 'i', 'ld': 'i', 'lh': 'i', 'lw': 'i', 'jalr': 'i',
-    'sb': 's', 'sw': 's', 'sh': 's',
-    'sd': 'i',
+    'sb': 's', 'sw': 's', 'sh': 's','sd': 's',
     'beq': 'sb', 'bne': 'sb', 'bge': 'sb', 'blt': 'sb',
     'auipc': 'u', 'lui': 'u',
     'jal': 'uj'
@@ -80,7 +79,7 @@ def immediate20bit(string):
         return format(int(string), '020b')
 
 
-def get_mc(l, pc, labels,no_of_segmentflags):
+def get_mc(l, pc, labels,data):
     if dictionary_format[l[0]] == 'r':
         f7 = dict7[l[0]]
         f3 = dict3[l[0]]
@@ -91,22 +90,44 @@ def get_mc(l, pc, labels,no_of_segmentflags):
         # print(f7,rs2,rs1,f3,rd,opcode)
         mc = f7 + rs2 + rs1 + f3 + rd + opcode
         # print(mc,'0x'+'%.*x'%(8,int('0b'+mc,0)), format(int(mc,2),"#010x"))
-        return '%#010x' % (int('0b'+mc, 0))
+        return '%#010x' % (int('0b'+mc, 0)),-1
     if(dictionary_format[l[0]] == 'i'):
         rd = get_register(l[1])
-        rs1 = get_register(l[2])
         opcode = dictionary_opcode[l[0]]
         f3 = dict3[l[0]]
-        imm = immediate12bit(l[3])
+        if(opcode !='0000011'): #not a load instruction
+            rs1 = get_register(l[2])
+            imm = immediate12bit(l[3])
+        else: #load instruction
+            if(len(l)==4): #simple register available
+                rs1 = get_register(l[2])
+                imm = immediate12bit(str(l[3]))
+            elif(len(l)==3 and data.get(l[2],-1)!=-1): #load of a variable and variable is defined
+                new_l = ['auipc',rd,'0x10000']
+                mc1 = get_mc(new_l,pc,labels,data)
+                pc+=4
+                new_l = [l[0],l[1],l[1],int(data[l[2]],16) - 268435456 - pc + 4] # load x1 , x1 , offset and offset = data[l[2]] - int(0x10000000) - pc 
+                mc2 = get_mc(new_l,pc,labels,data)
+                return mc1[0],mc2[0]
+            else:
+                print("incorrect format for the instruction. either",l[2],"not defined, or more than expected number of parameters passed")
         # print(imm,rs1,f3,rd,opcode)
         mc = imm + rs1 + f3 + rd + opcode
         # print(mc,'0x'+'%.*x'%(8,int('0b'+mc,0)), format(int(mc,2),"#010x"))
-        return '%#010x' % (int('0b'+mc, 0))
-    if(dictionary_format[l[0]] == 's' or dictionary_format[l[0]] == 'sb'):
-        if(dictionary_format[l[0]] == 's'):
-            imm = immediate12bit(l[3])
-        else:  # sb format requires branch's label address
-            imm = int(((labels[l[3]] - no_of_segmentflags)*4 - pc)/2)
+        return '%#010x' % (int('0b'+mc, 0)),-1
+    if(dictionary_format[l[0]] == 's'):
+        #print(l)
+        imm = immediate12bit(l[3])
+        rs1 = get_register(l[2])
+        rs2 = get_register(l[1])
+        f3 = dict3[l[0]]
+        opcode = dictionary_opcode[l[0]]
+        #print(imm[0:7:],rs2,rs1,f3,imm[7::],opcode)
+        mc = imm[0:7:] + rs2 + rs1 + f3 + imm[7::] + opcode
+        #print(mc)
+        return '%#010x' % (int('0b'+mc, 0)),-1
+    elif(dictionary_format[l[0]] == 'sb'):
+        imm = int((labels[l[3]]*4 - pc)/2)
         rs1 = get_register(l[1])
         rs2 = get_register(l[2])
         f3 = dict3[l[0]]
@@ -121,19 +142,19 @@ def get_mc(l, pc, labels,no_of_segmentflags):
         # print(imm[0],imm[2:8:],imm[8::],imm[1])  # , rs2, rs1, f3, imm[7::], opcode)
         mc = imm[0] + imm[2:8:] + rs2 + rs1 + f3 + imm[8::] + imm[1] + opcode
         # print(mc,'%#010x'%(int('0b'+mc,0)))#, format(int(mc,2),"#010x"))
-        return '%#010x' % (int('0b'+mc, 0))
+        return '%#010x' % (int('0b'+mc, 0)),-1
     if(dictionary_format[l[0]] == 'u'):
         imm = immediate20bit(l[2])
         rd = get_register(l[1])
         opcode = dictionary_opcode[l[0]]
         # print(imm,rd,opcode)
         mc = imm+rd+opcode
-        return '%#010x' % (int('0b'+mc, 0))
+        return '%#010x' % (int('0b'+mc, 0)),-1
     if(dictionary_format[l[0]] == 'uj'):  # jal x1,label
         opcode = dictionary_opcode[l[0]]
         rd = get_register(l[1])
         #print("label[l[2]] =", labels[l[2]], "current pc =", pc)
-        imm = (int(labels[l[2]]) - no_of_segmentflags)*4 - pc
+        imm = int(labels[l[2]])*4 - pc
         #print("imm = ", imm)
         # imm = "11111111111111111111" #relative value from address of current instructionAddress of label - PC(considerin PC is at current instruction)
         if(str(imm)[0] != '-'):
@@ -146,18 +167,16 @@ def get_mc(l, pc, labels,no_of_segmentflags):
         imm = imm[0] + imm[10::] + imm[9] + imm[1:9:]
         #print(imm)
         mc = str(imm) + rd + opcode
-        return '%#010x' % (int('0b'+mc, 0))
+        return '%#010x' % (int('0b'+mc, 0)),-1
 
 
 def convertToMC(instruction, labels,datas):
-    # readingfile = open("assemble.asm", "r")
-    print(instruction,"\n")
-    print(labels,"\n")
-    print(datas,"\n")
+    #print(instruction,"\n")
+    #print(labels,"\n")
+    #print(datas,"\n")
     writefile = open("out.mc", "w")
+    writefile.write("TEXT_SEGMENT_OF_MCFILE\n\n")
     instructionAddress = 0
-    dataFlag = False  # True means this is a data segment and false means it is a text segment
-    no_of_segment_flags=0
     for x in instruction:
         # this flag is for switching format in case of {jalr x0,0(x1)} equating {jalr x0 x1 0}
         flag = False
@@ -165,50 +184,35 @@ def convertToMC(instruction, labels,datas):
         if(x.strip("\r\n") == ""):
             print("no instruction here, this is empty")
             continue
-        elif(x.strip("\r\n").replace(" ","") == ".data"):
-            dataFlag = True
-            no_of_segment_flags+=1
-            continue
-        elif(x.strip("\r\n").replace(" ","") == ".text"):
-            dataFlag = False
-            no_of_segment_flags+=1
-            continue
-        # elif(x.find(":") != -1 and dataFlag == False):
-        #     dict_labels[x[0:x.find(":"):]] = hex(instructionAddress)
-        #     x = x[x.find(":")+1::]
-        #     x = x.strip(" \r\n")
-        #     print(dict_labels)
-        #     # print("after this x is:",x,"[]")
-        #     if(x == ""):
-        #         # print("wubba lubaa dub dub")
-        #         continue
-        # elif(x.find(":")!=-1 and dataFlag==True): this will handle variables
-        # 	dict_variables[] =
-        if(dataFlag == False):
-            s = str(x)
-            s = s.strip("\r\n")
-            l = []
-            s = s.replace(",", " ")
-            s = s.replace(":", " ")
-            if (s.count('(') != 0):
-                flag = True
-                s = s.replace("(", " ")
-                s = s.replace(")", "")
-            # print(s)
-            l = s.split()
-            if flag == True:
-                l[2], l[3] = l[3], l[2]
-                s = l[0]+" " + l[1] + " " + l[2] + " " + l[3]
-            machineCode = get_mc(l, instructionAddress, labels,no_of_segment_flags)
-            writefile.write(hex(instructionAddress) + " "+machineCode + "\n")
-            M.add_text(machineCode)
-            instructionAddress += 4
-        elif(dataFlag == True):  # this is data segment
-            print("MIKE MIKE MIKE MIKE MIKE MIKE MIKE")
-            s = str(x)
-            s = s.replace(":", " ")
-            l = s.split()
-            print(l)
+        
+        s = str(x)
+        s = s.strip("\r\n")
+        l = []
+        s = s.replace(",", " ")
+        s = s.replace(":", " ")
+        if (s.count('(') != 0):
+            flag = True
+            s = s.replace("(", " ")
+            s = s.replace(")", "")
+        # print(s)
+        l = s.split()
+        if flag == True:
+            l[2], l[3] = l[3], l[2]
+            s = l[0]+" " + l[1] + " " + l[2] + " " + l[3]
+        
+        #print("nextInstruction = ",l)
+        machineCode1,machineCode2 = get_mc(l, instructionAddress, labels,datas)
+        #print(machineCode1,machineCode2) ###################3
+        writefile.write(hex(instructionAddress) + "\t:\t"+machineCode1 + "\n")
+        M.add_text(machineCode1)
+        if(machineCode2!=-1):
+            writefile.write(hex(instructionAddress) + "\t:\t"+machineCode2 + "\n")
+            M.add_text(machineCode2)
+            instructionAddress+=4
+        instructionAddress += 4
+    writefile.write("\n\nDATA_SEGMENT_OF_MCFILE\n((following segment shows the data address pointed by the corresponding variables))\n\n")
+    for ke in datas:
+        writefile.write(str(ke)+"\t:\t"+str(datas[ke])+"\n")
     writefile.close()
 
 
@@ -220,6 +224,7 @@ def getDirectives():
     textsegment = True
     labels = {}
     data = {}
+    tocheck = []
     for x in file:
         if(x == '\n'):
             if(s.strip(" \r\n") != ''):
@@ -228,10 +233,10 @@ def getDirectives():
                 # print("textsegment=", textsegment)
                 if(s.strip() == '.data'):
                     textsegment = False
-                    ins.append(s)
+                    #ins.append(s)
                 elif(s.strip()== '.text'):
                     textsegment = True
-                    ins.append(s)
+                    #ins.append(s)
                 elif(s.find(":") != -1 and textsegment == True):
                     cuu = s[0:s.find(":"):].replace('\t', 'aa')
                 #    print("wooohooo", cuu)
@@ -240,6 +245,12 @@ def getDirectives():
                         ins.append(s[s.find(":")+1::])
                 elif(textsegment==True):
                     ins.append(s)
+                    y = s
+                    y = y.replace(",",' ')
+                    y = y.strip()
+                    yy = y.split()
+                    if(len(yy)==3 and data.get(yy[2],-1)!=-1):
+                        tocheck.append(len(ins))
                 elif(textsegment==False):
                     s=s.strip()
                     dd = s.split(":")
@@ -281,10 +292,19 @@ def getDirectives():
     # print(len(ins))
     rf.close()
     
+    for o in tocheck:
+        for k in labels.keys():
+            print(o,k,labels[k])
+            if((labels[k])>=o):
+                labels[k]+=1
+            print(o,k,labels[k])
+    
+    
     return ins, labels , data
 
 M = Memory()
 instructions, labela,dataa = getDirectives() # returns list of instructions , labels , data (containing variable with address they point to)
+# print(instructions)
 convertToMC(instructions, labela,dataa)
 M.show_Memory()
 
