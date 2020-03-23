@@ -33,21 +33,29 @@ class Memory:
         if(type=='.byte'):
             for x in arr:
                 if(len(x)>1): ###NO need to convert if passed value is already in hex
-                    if(x[0]=='0' and x[1]=='x'):
+                    if(x[0]=='0' and x[1]=='x' and len(x)<=4):
                         y = com(x[2::],2)
                         self.data.append(y)
                     else:
-                        self.data.append(com(hex(int(x))[2::],2))
+                        if(len(hex(int(x)))<=4):
+                            self.data.append(com(hex(int(x))[2::],2))
+                        else:
+                            print("can't store",x,"in a byte, because value is too large. truncating the value and storing 1 least significant nibble")
+                            self.data.append(hex(int(x))[-2:])
                 else: #not a hex
                     self.data.append(com(hex(int(x))[2::],2))
         elif(type=='.word'):
             for x in arr:
                 if(len(x)>1): ###NO need to convert if passed value is already in hex
-                    if(x[0]=='0' and x[1]=='x'):
+                    if(x[0]=='0' and x[1]=='x' and len(x)<=10):
                         y = com(x[2::],8)
                     else: #not hex
                         y=hex(int(x))[2::]
-                        y=com(y,8)
+                        if(len(y)<=8):
+                            y=com(y,8)
+                        else:
+                            print("can't store",x ,"in a word, because value is too large. truncating the value and storing 4 least significant bytes")
+                            y=y[-8:]
                 else: #length <=1
                     y=hex(int(x))[2::]
                     y=com(y,8)
@@ -63,11 +71,15 @@ class Memory:
         elif(type=='.halfword'):
             for x in arr:
                 if(len(x)>1): ###NO need to convert if passed value is already in hex
-                    if(x[0]=='0' and x[1]=='x'):
+                    if(x[0]=='0' and x[1]=='x' and len(x)<=6):
                         y = com(x[2::],4) 
                     else: # not a hex
                         y=hex(int(x))[2::]
-                        y=com(y,4)
+                        if(len(y)<=4):
+                            y=com(y,4)
+                        else:
+                            print("can't store",x,"in a halfword, because value is too large, truncating and storing 2 least significant bytes")
+                            y=y[-4:]
                 else: #length <=1
                     y=hex(int(x))[2::]
                     y=com(y,4)
@@ -75,14 +87,18 @@ class Memory:
                 y2=y[2:4]
                 self.data.append(y2)
                 self.data.append(y1)
-        elif(type=='.doubleword'):
+        elif(type=='.doubleword'): 
             for x in arr:
                 if(len(x)>1): ###NO need to convert if passed value is already in hex
-                    if(x[0]=='0' and x[1]=='x'):
+                    if(x[0]=='0' and x[1]=='x' and len(x)<=18):
                         y = com(x[2::],16)
                     else:    # not a hex
                         y=str(hex(int(x)))[2:]
-                        y=com(y,16)
+                        if(len(y)<=16):
+                            y=com(y,16)
+                        else:
+                            print("couldn't store",x,'in a doubleword, as value is too large, truncating and storing 8 least significant bytes')
+                            y=y[-16:]
                 else: #length <=1
                     y=str(hex(int(x)))[2:]
                     y=com(y,16)

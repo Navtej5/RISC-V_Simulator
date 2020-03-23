@@ -175,9 +175,9 @@ def get_mc(l, pc, labels,data):
 
 
 def convertToMC(instruction, labels,datas,data_out):
-    #print(instruction,"\n")
-    #print(labels,"\n")
-    #print(datas,"\n")
+    # print(instruction)
+    # print(labels)
+    # print(datas,"\nshindeiru")
     writefile = open("out.mc", "w")
     writefile.write("TEXT_SEGMENT_OF_MCFILE\n\n")
     instructionAddress = 0
@@ -185,12 +185,13 @@ def convertToMC(instruction, labels,datas,data_out):
         # this flag is for switching format in case of {jalr x0,0(x1)} equating {jalr x0 x1 0}
         flag = False
         # print(x)
-        if(x.strip("\r\n") == ""):
+        if(x.strip("\r\n") == "" or x.strip()==''):
             print("no instruction here, a empty line encountered!")
             continue
         
         s = str(x)
         s = s.strip("\r\n")
+        s = s.strip()
         l = []
         s = s.replace(",", " ")
         s = s.replace(":", " ")
@@ -204,7 +205,7 @@ def convertToMC(instruction, labels,datas,data_out):
             l[2], l[3] = l[3], l[2]
             s = l[0]+" " + l[1] + " " + l[2] + " " + l[3]
         
-        #print("nextInstruction = ",l)
+        print("nextInstruction = ",l)
         machineCode1,machineCode2 = get_mc(l, instructionAddress, labels,datas)
         #print(machineCode1,machineCode2) ###################3
         writefile.write(hex(instructionAddress) + "  \t:\t"+machineCode1 + "\n")
@@ -278,24 +279,33 @@ def getDirectives():
         else:
             s += x
     #s=s.replace(" ",'')
-    #print("last=",s.strip("\r\n"),sep="")
-    if(s.strip("\r\n") != ''):  #this segment is in case final character is not a new line and process the last line irrespective of that
+    # print("last=",s.strip("\r\n"),sep="")
+    if(s.strip("\r\n") != '' or s.strip()!=''):  #this segment is in case final character is not a new line and process the last line irrespective of that
         # print("line :", s)
         # print("textsegment=", textsegment)
-        if(s.strip("\r\n") == '.data'):
-            textsegment = False
-            ins.append(s)
+        s=s.strip()
+        if(textsegment == False and s.find(':')!=-1 and s.strip('\r\n')!='.data' and s.strip('\r\n')!='.text'):
+            s=s.strip()
+            dd = s.split(":")
+            dd[0]=dd[0].strip()
+            dd[1]=dd[1].strip()
+            dd.append(dd[1][dd[1].find(" ")::].strip())
+            dd[1] = dd[1][:dd[1].find(" "):].strip()
+            dd[2] = dd[2].replace('"','')
+            #print(dd)
+            data[dd[0]] = dd[1],dd[2]
+            #print(data)
+            address_for_stored_variable = M.add_data(data[dd[0]][0],data[dd[0]][1])
+            data[dd[0]] = address_for_stored_variable
             # ins.append(s)
-        elif(s.strip("\r\n") == '.text'):
-            textsegment = True
+        elif(textsegment == True and s.find(':')==-1 and s.strip('\r\n')!='.data' and s.strip('\r\n')!='.text'):
             ins.append(s)
-        elif(s.find(":") != -1 and textsegment == True):
+        elif(s.find(":") != -1 and textsegment == True and s.strip('\r\n')!='.data' and s.strip('\r\n')!='.text'):
         #    print("wooohooo", s[s.find(":")+1::])
             labels[s[0: s.find(":"):].replace(" ",'')] = len(ins)
             if(s[s.find(":")+1::].strip("\r\n").replace(" ","")!=''):
                 ins.append(s[s.find(":")+1::])
-        else:
-            ins.append(s)
+            
     #print(ins)
     #print(labels)
     # print(len(ins))
