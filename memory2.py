@@ -26,6 +26,8 @@ class Memory:
     
     
     def add_data(self,type,val):
+        if(type !='.asciiz'):
+            val = val.replace(",",' ')
         arr=val.split(' ')
         myreturnvalue = len(self.data)
         if(type=='.byte'):
@@ -116,8 +118,13 @@ class Memory:
         self.text.append(val)
     
     def show_Memory(self):
-        print("data segment---------------------------------------------------------------------------------------------------------\n", self.data,"\n\n")
-        print("text segment"+"("+str(len(self.text))+")","---------------------------------------------------------------------------------------------------------\n", self.text,"\n\n")
+        # print("data segment---------------------------------------------------------------------------------------------------------\n",self.data)
+        data_out=[]
+        for x in range(len(self.data)):
+            # print(hex(268435456 + x)," ",self.data[x])
+            data_out.append( str(hex(268435456 + x))+ " : " + str(self.data[x]) )
+        # print("text segment"+"("+str(len(self.text))+")","---------------------------------------------------------------------------------------------------------\n", self.text,"\n\n")
+        return data_out
 
 
 
